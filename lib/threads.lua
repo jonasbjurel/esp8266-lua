@@ -15,53 +15,60 @@
 -- # This is one of the first very experimental implementation with very limited
 -- # experience on how the actual ESP8266 SDK run-time system works.
 -- # The paradigm for this implementation is as follows:
--- # - The treading scheduler is globally initiated by a "handle=create_schduler()" call 
+-- # - The treading scheduler is globally initiated by a "scheduler=create_schduler()" call.
+-- #   NOTE: That the handle name needs to be "scheduler" and needs to be global! 
 -- # - The main thread calls all the functions needed for the application func1(..); func2(..) ..
 -- #   and each of these functions threads it self (creating an own thread) by calling:
 -- #   pid=handle.detach(), where pid is the global thread identifier.
--- # - Once all needed threads are created, the main thread calls handle.start_scedule(),
--- #   this should be the last thing to do in the main thread before exiting to the OS.
+-- # - To start the thread scheduling scheduler.start_scedule() should be called from a non thread
+-- #   context.
+-- #   NOTE: After calling scheduler.start_schedule the non thread context must terminate and leave
+-- #   control to the ESP/MCU OS, although asynchronous callbacks to the non thread context is allowed,
+-- #   eg. tmr.alarm().
 -- # - Now all detatched functions/threads will start to execute one by one from the job queue,
 -- #   there is no automatic thread dispatching - but as threads consumes CPU cycles, they need
--- #   to give access to the scheduler at regular intervals by calling: "handler.schedule().
+-- #   to give access to the scheduler at regular intervals by calling: "scheduler.schedule().
 -- #   This will yield access to other threads to be scheduled.
--- # - Threads terminating or otherwise crashing without previous explicit call of handle.kill(pid)
+-- # - Threads terminating or otherwise crashing without previous explicit call of scheduler.kill(pid)
 -- #   will cause panic and reboot!
 -- #
 -- # Methods:
+-- # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- # 
--- #   handle=create_scheduler()
+-- #   scheduler=create_scheduler()
 -- #   -------------------------
 -- #   Description: Creates a system wide thread scheduler
 -- #   Parameters: none
--- #   Returns: A system wide handle for any further thread manipulation
+-- #   Returns: A system wide handle for any further thread manipulation, this handle must be assigned 
+-- #   to the global "scheduler" variable. 
 -- #
--- #   pid=handle.detach(function())
--- #   -----------------------------
+-- #   pid=scheduler.detach(function())
+-- #   --------------------------------
 -- #   Description: Detaches the function to a multi-tasking scheduled thread
 -- #   Parameters: function to be run as a multitasking thread
 -- #   Returns: The PID UUID
 -- #
--- #   handle.schedule()
--- #   -----------------
+-- #   scheduler.schedule()
+-- #   --------------------
 -- #   Description: From within a detached thread - forces a new scheduling 
--- #   among threads waiting for execution; NOTE: this is currently the only way to yield
--- #   execution time to other threads and must be called regulary - ultimately failure to do
--- #   so will caus the watchdog to reboot the system.  
+-- #   among threads waiting for execution. This is currently the only way to yield
+-- #   execution time to other threads and ESP8266/MCU OS and must be called regulary - 
+-- #   ultimately failure to do so will cause the watchdog to reboot the system.'  
 -- #   Parameters: None
 -- #   Returns: 0 is success, all others failure
 -- #
--- #   pid=handle.my_pid()
--- #   -------------------
--- #   Description: Get current running PID
+-- #   pid=scheduler.my_pid()
+-- #   ----------------------
+-- #   Description: Get current running PID UUID
 -- #   Parameters: None
--- #   Returns: The PID for the currently running process
+-- #   Returns: The PID UUID for the currently running process
 -- #
--- #   handle.kill(pid)
--- #   ----------------
--- #   Description: Kill a thread with UUID: PID
--- #   Parameters: PID for the process to kill
--- #   Returns: 0 is success, all others failure
+-- #   result=scheduler.kill(pid)
+-- #   --------------------------
+-- #   Description: Kill a thread with pid UUID
+-- #   Parameters: pid UUID for the process to kill
+-- #   Returns: doesn't return at all if success, returns with a value <> 0 or nil when failed 
+-- #   as for example if the pid UUID does not exist, or otherwise.
 -- #
 -- #   mutex(function)
 -- #   ---------------
@@ -71,45 +78,59 @@
 -- #   Parameters: The function that needs to run as an atom
 -- #   Returns: The return code of the atom
 -- #
--- #   reboot()
--- #   --------
--- #   Description: Safely reboots the unit.
--- #   Parameters: -
--- #   Returns: -
+-- #   reboot() - Depricated - not supported!
+-- #   --------------------------------------
+-- #   -
+-- #
+-- #   IMPORTANT CONSIDERATIONS!
+-- #   -------------------------
+-- #   - OS asynch callback considerations:
+-- #     Thread library calls, referencing the scheduler handler must not be called from ESP8266/MCU/LUA
+-- #     asynchronous call-backs as they do not run in a defined thread context (allthough they run in a 
+-- #     defined function/stack context). Doing this will break the scheduler and will at the best create
+-- #     a scheduler PANIC, at worst undefined behaviour!
+-- #
+-- #     Following setup is not supported
+-- #      tmr.alarm(1, 1000, function()
+-- #        scheduler.schedule()
+-- #      end)
+-- #
+-- #     Instead construct something like this:
+-- #     tmr.alarm(1, 1000, function()
+-- #       timeout=1
+-- #     end)
+-- #     if (timeout == 1) then 
+-- #       timeout=0
+-- #       scheduler.schedule()
+-- #     end
+-- #
+-- #  - Memory consumption
+-- #    o All comments needs to be removed before downloading to ESP8266/NodeMCU in
+-- #      order to make it compile to LUA Byte code - for memory reasons.
+-- #    o The code needs to be compiled to LUA Byte code, i.e after having downloaded 
+-- #      it to the device - perform "node.compile("threads.lua")
 -- ##############################################################################
 
 -- ##############################################################################
 -- # TODO:
--- # ----
--- # - As always - memory consumption tuning
+-- # =====
+-- # - As always - memory consumption tuning - maybe adding this as a native ESP8266/MCU
+-- #   native c library.
 -- #
 -- # - Much more testing - and especially around if the scheduler explicitly needs to
 -- #   give runtime to the background nodemcu/ESP8266SDK run-time system - which it seems!?
 -- #
--- # - Adding semaphores: 
--- #   Consumer method: unstructured_data=semaphore_wait(timeout) - blocking 
--- #   (but no spin until time-out or message from any one (semaphore_assert)
--- #   Producer method: semaphore_assert(PID, blocking, unstructured_data)
--- #   sending a semaphore to PID with data, if blockig=1 - no spin blocking/synchronizing 
--- #   until received by consumer; if blocking=0, async delivery of semaphore and data.
+-- # - Rebase to a new timer shim library - abstracting away the hardware timer Id's 
+-- #   and potential collisions with timer Ids - resulting in unpredictable results.
 -- #
--- # - Adding thread priority - absolute priority
--- #   A number of questions though - what is the detectable criteria for a non runnable absolute
--- #   priority thread?
+-- # - Adding som simple measures for thread priority.
+-- #   The idea right now is to add an argument to schedule - scheduler.schedule(prio)
+-- #   which puts the job behind all prio jobs + 1 unprio job.
 -- ##############################################################################
 
 function mutex(mutex_func)
     local result = mutex_func()
     return result
-  end
-
-  function reboot()
-    print("Trying to use native platform reboot mechanism")
-    node.restart()
-    tmr.delay(5000000)
-    print("Now going harsh with the watchdog method")
-    while (true) do
-    end
   end
 
   function inTable(tbl, item)
@@ -122,37 +143,41 @@ function mutex(mutex_func)
   end
   
   function create_scheduler()
-    local self = {job_queue={}}
+    local self = {job_queue={}, killed_current_job=0}
 
     local sched=coroutine.create (function()
       while true do
         tmr.wdclr()
-        print("Heap reamining is", node.heap())
+--      print("Heap reamining is", node.heap())
         mutex(function()
           prev_pid=table.remove(self.job_queue, 1)
-          if (prev_pid ~= nil and coroutine.status(prev_pid) ~= "dead") then
+          if (self.killed_current_job == 1 or (prev_pid ~= nil and coroutine.status(prev_pid) ~= "dead")) then
+            self.killed_current_job=0
             table.insert(self.job_queue, prev_pid)
           else
-            print("PANIC PID", prev_pid, "has unexpecedly died - rebooting")
-            reboot()
+            print("PANIC!!! PID", prev_pid, "has unexpecedly died - rebooting")
+            node.restart()
           end
---          VVV Strange that semicolon is needed when last char is "]" VVV
+--        VVV Strange that semicolon is needed when last char is "]" VVV
           next_pid=self.job_queue[1];
         end)
-        print("Scheduling out PID", prev_pid)
-        print("Scheduling in PID", next_pid)
+--      print("Scheduling out PID", prev_pid)
+--      print("Scheduling in PID", next_pid)
         if (next_pid == nil) then
           print("No more threads to schedule, exiting scheduler....")
           break
         end
         coroutine.resume(next_pid)
+        coroutine.yield(sched)
       end
       return 0
     end)
 
     local function start_schedule()
       print("Starting scheduler", sched)
-      coroutine.resume(sched)
+      tmr.alarm(1,100,1,function() 
+        coroutine.resume(sched)
+      end)
     end
 
     local function detach(detach_func)
@@ -161,20 +186,21 @@ function mutex(mutex_func)
       mutex(function()
         table.insert(self.job_queue, new_pid)
       end)
-      return 0
+      return new_pid
     end
 
     local function kill(pid)
       mutex(function()
-        kill_job_index=inTable(self.job_queue, pid)
+        local kill_job_index=inTable(self.job_queue, pid)
         if (kill_job_index ~= nil) then
+          if (kill_job_index == 1 ) then
+            self.killed_current_job=1
+          end
           table.remove(self.job_queue, kill_job_index)
         end
       end)
       if (kill_job_index == nil) then
         return 1
-      else
-        return 0
       end
     end
 
@@ -183,7 +209,7 @@ function mutex(mutex_func)
     end
 
     local function schedule()
-      print("Yielding", my_pid())
+--    print("Yielding", my_pid())
       coroutine.yield(my_pid())
       return 0
     end
