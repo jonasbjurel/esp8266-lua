@@ -70,18 +70,6 @@
 -- #   Returns: doesn't return at all if success, returns with a value <> 0 or nil when failed 
 -- #   as for example if the pid UUID does not exist, or otherwise.
 -- #
--- #   mutex(function)
--- #   ---------------
--- #   Description: The function provided to the mutex call will be handled as an atom and will
--- #   not be entered by other threads/OS functions until released/returned. This is a placeholder,
--- #   Real implementation is still pending ESP 8266/NodeMCU multi-core/hardware thread support.
--- #   Parameters: The function that needs to run as an atom
--- #   Returns: The return code of the atom
--- #
--- #   reboot() - Depricated - not supported!
--- #   --------------------------------------
--- #   -
--- #
 -- #   IMPORTANT CONSIDERATIONS!
 -- #   -------------------------
 -- #   - OS asynch callback considerations:
@@ -128,19 +116,7 @@
 -- #   which puts the job behind all prio jobs + 1 unprio job.
 -- ##############################################################################
 
-function mutex(mutex_func)
-    local result = mutex_func()
-    return result
-  end
-
-  function inTable(tbl, item)
-    for key, value in pairs(tbl) do
-      if (value == item) then
-        return key
-      end
-    end
-    return false
-  end
+require "common"
   
   function create_scheduler()
     local self = {job_queue={}, killed_current_job=0}
@@ -183,22 +159,18 @@ function mutex(mutex_func)
     local function detach(detach_func)
       local new_pid=coroutine.create(detach_func)
       print("Detaching PID", new_pid)
-      mutex(function()
-        table.insert(self.job_queue, new_pid)
-      end)
+      table.insert(self.job_queue, new_pid)
       return new_pid
     end
 
     local function kill(pid)
-      mutex(function()
-        local kill_job_index=inTable(self.job_queue, pid)
-        if (kill_job_index ~= nil) then
-          if (kill_job_index == 1 ) then
-            self.killed_current_job=1
-          end
-          table.remove(self.job_queue, kill_job_index)
+      local kill_job_index=inTable(self.job_queue, pid)
+      if (kill_job_index ~= nil) then
+        if (kill_job_index == 1 ) then
+          self.killed_current_job=1
         end
-      end)
+        table.remove(self.job_queue, kill_job_index)
+      end
       if (kill_job_index == nil) then
         return 1
       end
@@ -209,7 +181,9 @@ function mutex(mutex_func)
     end
 
     local function schedule()
+--    DEBUG
 --    print("Yielding", my_pid())
+--    END DEBUG
       coroutine.yield(my_pid())
       return 0
     end
