@@ -8,14 +8,14 @@ Current status
 Includes
 --------
 - A Generic Linux build environment for NodeMCU including
-  o Target compilation to byte-code
-  o Host cross-compilation to byte code
-  o No compilation
-  o For more information see:
-    * <"git_root"/tools/build/Makefile.config.mk>
-    * <"git_root"/tools/build/Makefile.base.mk>
-    * <"git_root"/tools/build/Makefile.template>
-    * for help type <make -C "git_root"/tools/build" -f Makefile.template.mk help> 
+   * Target compilation to byte-code
+   * Host cross-compilation to byte code
+   * No compilation
+   * For more information see:
+     <"git_root"/tools/build/Makefile.config.mk>
+     <"git_root"/tools/build/Makefile.base.mk>
+     <"git_root"/tools/build/Makefile.template>
+     for help type: <make -C "git_root"/tools/build" -f Makefile.template.mk help> 
 - Common libraries for micro multi-thread, multi tasking soft real-time
   applications.
 - Common libraries for semaphore message communication and synchronization.
