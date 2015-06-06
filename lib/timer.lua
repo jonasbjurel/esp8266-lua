@@ -1,6 +1,6 @@
 -- ##############################################################################
 -- # Copyright (c) 2015 Jonas Bjurel and others as listed below:
--- # jonas.bjurel@hotmail.com 
+-- # jonasbjurel@hotmail.com 
 -- #
 -- # All rights reserved. This program and the accompanying materials
 -- # are made available under the terms of the Apache License, Version 2.0

@@ -1,0 +1,1 @@
+luac.cross -o myscript.lc -cci 32 -cce little  -ccn int 32  myscript.lua

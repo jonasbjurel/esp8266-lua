@@ -1,6 +1,6 @@
 -- ##############################################################################
 -- # Copyright (c) 2015 Jonas Bjurel and others as listed below:
--- # jonas.bjurel@hotmail.com 
+-- # jonasbjurel@hotmail.com 
 -- #
 -- # All rights reserved. This program and the accompanying materials
 -- # are made available under the terms of the Apache License, Version 2.0
@@ -125,18 +125,16 @@ require "common"
       while true do
         tmr.wdclr()
 --      print("Heap reamining is", node.heap())
-        mutex(function()
-          prev_pid=table.remove(self.job_queue, 1)
-          if (self.killed_current_job == 1 or (prev_pid ~= nil and coroutine.status(prev_pid) ~= "dead")) then
-            self.killed_current_job=0
-            table.insert(self.job_queue, prev_pid)
-          else
-            print("PANIC!!! PID", prev_pid, "has unexpecedly died - rebooting")
-            node.restart()
-          end
---        VVV Strange that semicolon is needed when last char is "]" VVV
-          next_pid=self.job_queue[1];
-        end)
+        prev_pid=table.remove(self.job_queue, 1)
+        if (self.killed_current_job == 1 or (prev_pid ~= nil and coroutine.status(prev_pid) ~= "dead")) then
+          self.killed_current_job=0
+          table.insert(self.job_queue, prev_pid)
+        else
+          print("PANIC!!! PID", prev_pid, "has unexpecedly died - rebooting")
+          node.restart()
+        end
+--      VVV Strange that semicolon is needed when last char is "]" VVV
+        next_pid=self.job_queue[1];
 --      print("Scheduling out PID", prev_pid)
 --      print("Scheduling in PID", next_pid)
         if (next_pid == nil) then

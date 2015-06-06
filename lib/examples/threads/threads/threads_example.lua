@@ -1,6 +1,6 @@
 -- ##############################################################################
 -- # Copyright (c) 2015 Jonas Bjurel and others as listed below:
--- # jonas.bjurel@hotmail.com 
+-- # jonasbjurel@hotmail.com 
 -- #
 -- # All rights reserved. This program and the accompanying materials
 -- # are made available under the terms of the Apache License, Version 2.0
@@ -21,7 +21,6 @@ require "threads"
       print("Thread A detached", a, "From thread A: I will do usefull things until I get killed by someone")
       local cnt=0
       while (true) do
---        print ("I'm here", cnt)
         tmr.delay(10000)
         scheduler.schedule()
         cnt=cnt+1
@@ -79,9 +78,9 @@ require "threads"
           print("From thread D: OUPS... I have been caught!, this will lead to system reboot!")
           print("To do this, I unpredictably broke out from the thread loop without calling threads:kill()")
           print("The same result would had been at hand if my thread had crashed:")
-          print("for examble by reference unreferenced values:")
+          print("for examble by referencing unreferenced objects:")
           print("data=unreferenced.sub_unreferenced.sub_sub_unreferenced")
-          print("or otherwise")
+          print("or otherwise bad things.......")
           break
         end
         scheduler.schedule()

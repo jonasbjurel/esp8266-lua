@@ -1,6 +1,6 @@
 -- ##############################################################################
 -- # Copyright (c) 2015 Jonas Bjurel and others as listed below:
--- # jonas.bjurel@hotmail.com 
+-- # jonasbjurel@hotmail.com 
 -- #
 -- # All rights reserved. This program and the accompanying materials
 -- # are made available under the terms of the Apache License, Version 2.0
@@ -25,7 +25,7 @@ require "semaphores"
       while (true) do
         if (time_out == 1) then
             print("Now sending a producer semaphore from", prod_pid, "to", transit_pid)
-            print("producer semaphore.assert result:", semaphore.assert_semaphore(transit_pid, 1, {"From consumer", "I have produced", cnt, "semaphores"}))
+            print("producer semaphore.assert result:", semaphore.assert_semaphore(transit_pid, 1, {"From producer", "I have produced", cnt, "semaphores"}))
           time_out=0
           cnt=cnt+1
           tmr.alarm(4, 10000, 0, function()
@@ -72,6 +72,3 @@ require "semaphores"
   transit()
   consumer()
   scheduler.start_schedule()
-  
-  
-    
